@@ -9,34 +9,46 @@
     <style>
         body { font-family: 'Roboto', sans-serif; background-color: #f4f6f9; font-size: 14px; }
         
-        #login-screen { height: 100vh; display: flex; align-items: center; justify-content: center; }
+        /* Màn hình đăng nhập */
+        #login-screen { height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        .footer-credit { margin-top: 20px; color: #6c757d; font-size: 0.9rem; font-style: italic; }
 
+        /* Giao diện chính */
         .sidebar { height: 100vh; overflow-y: auto; background: white; border-right: 1px solid #ddd; display: flex; flex-direction: column; }
         .exam-list-container { flex-grow: 1; overflow-y: auto; }
         .exam-item { cursor: pointer; padding: 12px 15px; border-bottom: 1px solid #eee; transition: 0.2s; }
         .exam-item:hover, .exam-item.active { background-color: #e9ecef; border-left: 5px solid #0d6efd; }
         
+        /* Bảng thống kê */
         .table-container { overflow: auto; max-height: 70vh; position: relative; border: 1px solid #dee2e6; }
         th, td { text-align: center; vertical-align: middle; white-space: nowrap; padding: 6px !important; }
         
+        /* Sortable Header */
+        .sortable { cursor: pointer; user-select: none; }
+        .sortable:hover { background-color: #212529 !important; }
+        .sort-icon { font-size: 0.8em; margin-left: 5px; color: #adb5bd; }
+
         /* Cố định cột */
         .sticky-col-1 { position: sticky; left: 0; z-index: 10; background-color: #f8f9fa; border-right: 1px solid #dee2e6; min-width: 160px; text-align: left; }
         .sticky-col-2 { position: sticky; left: 160px; z-index: 10; background-color: #f8f9fa; border-right: 2px solid #dee2e6; min-width: 60px; }
         thead th { position: sticky; top: 0; z-index: 20; background-color: #343a40; color: white; height: 50px;}
         thead th.sticky-col-1, thead th.sticky-col-2 { z-index: 30; }
         
+        /* Dòng thống kê sticky */
         .sticky-row-stats { position: sticky; top: 50px; z-index: 15; background-color: #fff3cd; font-weight: bold; border-bottom: 2px solid #999; }
         .sticky-row-stats td.sticky-col-1, .sticky-row-stats td.sticky-col-2 { background-color: #fff3cd; z-index: 25; }
 
-        /* SỬA LỖI MÀU SẮC: THÊM !IMPORTANT ĐỂ KHÔNG BỊ BOOTSTRAP ĐÈ */
+        /* Màu sắc kết quả */
         .cell-correct { background-color: #ffffff !important; color: #198754; } 
-        .cell-wrong { background-color: #ffe6e6 !important; color: #dc3545; } /* Đỏ nhạt cho cả sai và không làm */
+        .cell-wrong { background-color: #ffe6e6 !important; color: #dc3545; }
         
+        /* Tổng quan */
         .overview-card { background: white; padding: 15px; border-radius: 8px; margin-bottom: 15px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
         .stat-box { text-align: center; border-right: 1px solid #eee; }
         .stat-box:last-child { border-right: none; }
         .stat-value { font-size: 1.2rem; font-weight: bold; color: #0d6efd; }
         .stat-label { font-size: 0.85rem; color: #6c757d; }
+        .warning-box { margin-top: 15px; padding-top: 10px; border-top: 1px dashed #ccc; color: #dc3545; font-weight: 500; }
 
         @media (max-width: 768px) {
             .sidebar { height: auto; max-height: 250px; border-bottom: 2px solid #ccc; }
@@ -48,17 +60,29 @@
 </head>
 <body>
 
+    <!-- 1. Màn hình Đăng nhập -->
     <div id="login-screen">
         <div class="card p-4 shadow" style="width: 350px;">
             <h4 class="text-center mb-3">Đăng Nhập Quản Trị</h4>
             <input type="password" id="passwordInput" class="form-control mb-3" placeholder="Nhập mật khẩu...">
+            
+            <!-- Checkbox lưu mật khẩu -->
+            <div class="form-check mb-3">
+                <input class="form-check-input" type="checkbox" id="rememberMe">
+                <label class="form-check-label small" for="rememberMe">Lưu mật khẩu cho lần sau</label>
+            </div>
+
             <button onclick="login()" class="btn btn-primary w-100" id="btnLogin">Truy cập</button>
             <p id="loginMsg" class="text-danger mt-2 text-center small"></p>
         </div>
+        <!-- Footer bản quyền -->
+        <div class="footer-credit">Design by QuânPT</div>
     </div>
 
+    <!-- 2. Màn hình Dashboard -->
     <div id="dashboard" class="container-fluid d-none">
         <div class="row">
+            <!-- Cột trái: Tìm kiếm & Danh sách -->
             <div class="col-md-3 col-lg-2 sidebar p-0">
                 <div class="p-3 bg-dark text-white fw-bold">QUẢN LÝ THI</div>
                 <div class="p-2 border-bottom">
@@ -69,11 +93,13 @@
                 </div>
             </div>
 
+            <!-- Cột phải: Chi tiết -->
             <div class="col-md-9 col-lg-10 p-3" style="height: 100vh; overflow-y: auto;">
                 <div class="d-flex justify-content-between align-items-center mb-3">
                     <h5 id="current-exam-title" class="fw-bold text-primary m-0">Chọn đề thi để xem kết quả</h5>
                 </div>
 
+                <!-- Thống kê tổng quan -->
                 <div id="overview-section" class="d-none">
                     <div class="overview-card">
                         <div class="row">
@@ -94,10 +120,16 @@
                                 <div class="stat-label">Thấp nhất</div>
                             </div>
                         </div>
+                        <!-- Cảnh báo câu sai nhiều -->
+                        <div id="hard-questions-box" class="warning-box d-none">
+                            <span class="text-danger">⚠️ Các câu có tỉ lệ sai ≥ 50%: </span>
+                            <span id="hard-questions-list" class="fw-bold"></span>
+                        </div>
                     </div>
                 </div>
                 
                 <div id="main-content" class="table-container shadow-sm bg-white rounded">
+                    <!-- Bảng kết quả -->
                 </div>
             </div>
         </div>
@@ -109,16 +141,36 @@
         // ================
 
         let globalData = null; 
+        let currentStudents = []; // Danh sách HS đang hiển thị (để sort)
+        let currentConfig = {};   // Cấu hình đề đang chọn
+        let sortState = { col: null, dir: 'asc' }; // Trạng thái sắp xếp
 
-        // Hàm tiện ích: Chuyển đổi chuỗi số (4,4 hoặc 4.4) thành số thực để tính toán
+        // --- Xử lý Lưu mật khẩu ---
+        window.onload = function() {
+            const savedPass = localStorage.getItem('quanpt_admin_pass');
+            if (savedPass) {
+                document.getElementById('passwordInput').value = savedPass;
+                document.getElementById('rememberMe').checked = true;
+            }
+        };
+
+        // Hàm tiện ích: Chuyển đổi chuỗi số (4,4 hoặc 4.4) thành số thực
         function parseScore(str) {
             if (!str) return 0;
-            // Thay dấu phẩy thành dấu chấm rồi mới parse
             return parseFloat(String(str).replace(',', '.'));
         }
 
+        // Hàm tiện ích: Lấy Tên từ Họ tên (Ví dụ: Nguyễn Văn An -> An)
+        function getName(fullName) {
+            if (!fullName) return "";
+            const parts = fullName.trim().split(" ");
+            return parts[parts.length - 1].toLowerCase(); // Lấy từ cuối cùng
+        }
+
         async function login() {
-            const pass = document.getElementById('passwordInput').value;
+            const passInput = document.getElementById('passwordInput');
+            const rememberMe = document.getElementById('rememberMe');
+            const pass = passInput.value;
             const btn = document.getElementById('btnLogin');
             const msg = document.getElementById('loginMsg');
             
@@ -132,6 +184,10 @@
                 if (data.error) {
                     msg.innerText = data.error; btn.innerHTML = "Truy cập"; btn.disabled = false;
                 } else {
+                    // Xử lý lưu pass
+                    if (rememberMe.checked) localStorage.setItem('quanpt_admin_pass', pass);
+                    else localStorage.removeItem('quanpt_admin_pass');
+
                     globalData = data;
                     document.getElementById('login-screen').classList.add('d-none');
                     document.getElementById('dashboard').classList.remove('d-none');
@@ -179,22 +235,55 @@
             element.classList.add('active');
             document.getElementById('current-exam-title').innerText = `${exam.maDe} - ${exam.tenDe}`;
             
-            const students = globalData.students.filter(hs => String(hs.maDe) === String(exam.maDe));
-            calculateOverview(students);
+            // Reset sort state khi chọn đề mới
+            sortState = { col: null, dir: 'asc' };
 
-            let config = {};
-            try { config = JSON.parse(exam.configJson); } catch(e) {}
-            renderMatrixTable(students, config);
+            // Lấy danh sách HS và config
+            currentStudents = globalData.students.filter(hs => String(hs.maDe) === String(exam.maDe));
+            try { currentConfig = JSON.parse(exam.configJson); } catch(e) { currentConfig = {}; }
+            
+            calculateOverview(currentStudents, currentConfig);
+            renderMatrixTable(currentStudents, currentConfig);
         }
 
-        function calculateOverview(students) {
+        // --- Hàm Sắp xếp (Logic mới) ---
+        function sortTable(column) {
+            // Đảo chiều nếu click lại cột cũ
+            if (sortState.col === column) {
+                sortState.dir = sortState.dir === 'asc' ? 'desc' : 'asc';
+            } else {
+                sortState.col = column;
+                sortState.dir = 'asc'; // Mặc định cột mới là tăng dần
+            }
+
+            // Thực hiện sắp xếp
+            currentStudents.sort((a, b) => {
+                let valA, valB;
+
+                if (column === 'name') {
+                    valA = getName(a.hoTen);
+                    valB = getName(b.hoTen);
+                    // So sánh chuỗi
+                    return sortState.dir === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
+                } 
+                else if (column === 'score') {
+                    valA = parseScore(a.diem);
+                    valB = parseScore(b.diem);
+                    // So sánh số
+                    return sortState.dir === 'asc' ? valA - valB : valB - valA;
+                }
+            });
+
+            // Vẽ lại bảng
+            renderMatrixTable(currentStudents, currentConfig);
+        }
+
+        function calculateOverview(students, config) {
             const section = document.getElementById('overview-section');
             if(students.length === 0) { section.classList.add('d-none'); return; }
             section.classList.remove('d-none');
 
-            // SỬA LỖI 1: Dùng hàm parseScore để xử lý dấu phẩy khi tính toán
             const scores = students.map(s => parseScore(s.diem));
-            
             const count = students.length;
             const max = Math.max(...scores);
             const min = Math.min(...scores);
@@ -202,9 +291,45 @@
             const avg = (sum / count).toFixed(2);
 
             document.getElementById('stat-count').innerText = count;
-            document.getElementById('stat-avg').innerText = avg.replace('.', ','); // Hiển thị lại dấu phẩy cho đồng bộ
+            document.getElementById('stat-avg').innerText = avg.replace('.', ',');
             document.getElementById('stat-max').innerText = max.toString().replace('.', ',');
             document.getElementById('stat-min').innerText = min.toString().replace('.', ',');
+
+            // --- TÍNH TOÁN CÂU SAI NHIỀU (>50%) ---
+            const questions = config.dapAn || [];
+            let hardQuestions = [];
+            
+            questions.forEach(q => {
+                let wrongCount = 0;
+                students.forEach(hs => {
+                    let baiLam = [];
+                    try { baiLam = JSON.parse(hs.baiLamJson); } catch(e) {}
+                    const ans = baiLam.find(c => c.cau == q.id);
+                    let isCorrect = false;
+                    
+                    if (ans) {
+                        if (q.dang == 1 || q.dang == 3) {
+                             if (String(ans.chon) == String(q.dapAn)) isCorrect = true;
+                        } else if (q.dang == 2) {
+                             if (JSON.stringify(ans.chon) === JSON.stringify(q.dapAn)) isCorrect = true;
+                        }
+                    }
+                    if (!isCorrect) wrongCount++;
+                });
+
+                let wrongPercent = (wrongCount / count) * 100;
+                if (wrongPercent >= 50) {
+                    hardQuestions.push(`C${q.id} (${Math.round(wrongPercent)}%)`);
+                }
+            });
+
+            const hardBox = document.getElementById('hard-questions-box');
+            if (hardQuestions.length > 0) {
+                hardBox.classList.remove('d-none');
+                document.getElementById('hard-questions-list').innerText = hardQuestions.join(", ");
+            } else {
+                hardBox.classList.add('d-none');
+            }
         }
 
         function renderMatrixTable(students, examConfig) {
@@ -220,7 +345,6 @@
             students.forEach(hs => {
                 let baiLam = [];
                 try { baiLam = JSON.parse(hs.baiLamJson); } catch(e) { baiLam = []; }
-
                 questions.forEach((q, index) => {
                     const ans = baiLam.find(c => c.cau == q.id);
                     let isCorrect = false;
@@ -237,9 +361,14 @@
 
             // Vẽ bảng
             let html = '<table class="table table-bordered table-hover mb-0">';
+            
+            // HEADER - THÊM SỰ KIỆN ONCLICK ĐỂ SORT
+            let iconName = sortState.col === 'name' ? (sortState.dir === 'asc' ? '▲' : '▼') : '↕';
+            let iconScore = sortState.col === 'score' ? (sortState.dir === 'asc' ? '▲' : '▼') : '↕';
+            
             html += '<thead><tr>';
-            html += '<th class="sticky-col-1">Họ và Tên</th>';
-            html += '<th class="sticky-col-2">Điểm</th>';
+            html += `<th class="sticky-col-1 sortable" onclick="sortTable('name')">Họ và Tên <span class="sort-icon">${iconName}</span></th>`;
+            html += `<th class="sticky-col-2 sortable" onclick="sortTable('score')">Điểm <span class="sort-icon">${iconScore}</span></th>`;
             questions.forEach(q => { html += `<th>C${q.id}</th>`; });
             html += '</tr></thead>';
 
@@ -264,8 +393,6 @@
             students.forEach(hs => {
                 let baiLam = [];
                 try { baiLam = JSON.parse(hs.baiLamJson); } catch(e) { baiLam = []; }
-
-                // SỬA LỖI 1: Hiển thị nguyên văn dữ liệu từ Sheet (không parse, không round)
                 let diemHienThi = hs.diem; 
 
                 html += `<tr>`;
@@ -275,7 +402,7 @@
                 questions.forEach((q, index) => {
                     const ans = baiLam.find(c => c.cau == q.id);
                     let display = "";
-                    let cssClass = "cell-wrong"; // SỬA LỖI 2: Mặc định là SAI (ĐỎ)
+                    let cssClass = "cell-wrong"; 
                     let isCorrect = false;
 
                     if (ans) {
@@ -284,22 +411,13 @@
                         } else {
                             display = ans.chon;
                         }
-
                         if (q.dang == 1 || q.dang == 3) {
                              if (String(ans.chon) == String(q.dapAn)) isCorrect = true;
                         } else if (q.dang == 2) {
                              if (JSON.stringify(ans.chon) === JSON.stringify(q.dapAn)) isCorrect = true;
                         }
-                    } else {
-                        // Không làm bài -> Vẫn giữ cell-wrong, nội dung trống
-                        display = ""; 
-                    }
-
-                    if (isCorrect) {
-                        cssClass = "cell-correct";
-                    }
-
-                    // SỬA LỖI 2: Dùng cssClass có !important
+                    } else { display = ""; }
+                    if (isCorrect) cssClass = "cell-correct";
                     html += `<td class="${cssClass}">${display}</td>`;
                 });
                 html += `</tr>`;
