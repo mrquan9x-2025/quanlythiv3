@@ -32,13 +32,10 @@
         .stat-value { font-size: 1.2rem; font-weight: bold; color: #0d6efd; }
         .stat-label { font-size: 0.85rem; color: #6c757d; }
         .analysis-section { margin-top: 15px; border-top: 1px dashed #ccc; padding-top: 15px; }
-        /* Style riêng cho badge cảnh báo */
         .question-badge { font-size: 0.85rem; margin-right: 5px; margin-bottom: 5px; display: inline-block; padding: 5px 10px; }
-        /* Style cho text câu dễ */
         .easy-text { color: #6c757d; font-size: 0.9rem; line-height: 1.6; }
 
         #loading-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.9); z-index: 9999; display: flex; justify-content: center; align-items: center; flex-direction: column; }
-        .local-loading { position: absolute; top:0; left:0; width:100%; height:100%; background: rgba(255,255,255,0.8); display:flex; justify-content:center; align-items:center; z-index: 50; }
         
         @media (max-width: 768px) {
             .sidebar { height: auto; max-height: 250px; border-bottom: 2px solid #ccc; }
@@ -86,12 +83,10 @@
                             <div class="col-3 stat-box"><div class="stat-value text-danger" id="stat-min">0</div><div class="stat-label">Thấp nhất</div></div>
                         </div>
                         <div class="analysis-section row">
-                            <!-- Câu Dễ: Liệt kê text -->
                             <div class="col-md-4 mb-2">
                                 <h6 class="fw-bold text-success small text-uppercase">Dễ (Sai ≤ 30%)</h6>
                                 <div id="list-easy" class="easy-text"></div>
                             </div>
-                            <!-- Câu TB/Khó: Giữ nguyên Badge -->
                             <div class="col-md-4 mb-2">
                                 <h6 class="fw-bold text-warning small text-uppercase" style="color:#fd7e14!important">Trung bình (30-70%)</h6>
                                 <div id="list-medium"></div>
@@ -105,9 +100,7 @@
                 </div>
                 
                 <div id="main-content" class="table-container shadow-sm bg-white rounded position-relative">
-                    <div id="table-loading" class="local-loading d-none">
-                        <div class="spinner-border text-primary" role="status"></div>
-                    </div>
+                    <!-- Nội dung bảng hoặc Loading sẽ hiện ở đây -->
                 </div>
             </div>
         </div>
@@ -164,9 +157,13 @@
         }
 
         async function loadStudentData(exam) {
-            const tableLoader = document.getElementById('table-loading');
-            tableLoader.classList.remove('d-none');
-            document.getElementById('main-content').innerHTML = '<div id="table-loading" class="local-loading"><div class="spinner-border text-primary"></div></div>'; 
+            // SỬA LỖI 1: Reset lại nội dung main-content thành hình Loading mỗi khi tải đề mới
+            // Việc này đảm bảo biểu tượng Loading luôn xuất hiện và xóa sạch bảng cũ
+            const container = document.getElementById('main-content');
+            container.innerHTML = `
+                <div class="d-flex justify-content-center align-items-center" style="height: 200px;">
+                    <div class="spinner-border text-primary" role="status"></div>
+                </div>`;
 
             try {
                 const response = await fetch(`${GOOGLE_SCRIPT_URL}?action=getStudentList&pass=${AUTO_PASS}&maDe=${exam.maDe}&t=${new Date().getTime()}`);
@@ -208,6 +205,8 @@
             document.querySelectorAll('.exam-item').forEach(el => el.classList.remove('active'));
             element.classList.add('active');
             document.getElementById('current-exam-title').innerText = `${exam.maDe} - ${exam.tenDe}`;
+            
+            // Ẩn bảng thống kê cũ để người dùng biết là đang tải cái mới
             document.getElementById('overview-section').classList.add('d-none');
             document.getElementById('btnShowChart').classList.add('d-none');
             
@@ -260,20 +259,17 @@
                 });
                 let wrongPercent = count > 0 ? (wrongCount / count) * 100 : 0;
                 
-                // LOGIC PHÂN LOẠI MỚI
+                // LOGIC HIỂN THỊ MỚI
                 if (wrongPercent <= 30) {
-                    // Dễ: Chỉ lấy tên câu, không badge
-                    listEasy.push(`C${q.id}`);
+                    // Dễ: Thêm % vào trong ngoặc
+                    listEasy.push(`C${q.id} (${Math.round(wrongPercent)}%)`);
                 } else if (wrongPercent < 70) {
-                    // TB: Badge vàng
                     listMedium.push(`<span class="badge bg-warning text-dark question-badge">C${q.id} (${Math.round(wrongPercent)}%)</span>`);
                 } else {
-                    // Khó: Badge đỏ
                     listHard.push(`<span class="badge bg-danger question-badge">C${q.id} (${Math.round(wrongPercent)}%)</span>`);
                 }
             });
 
-            // Hiển thị listEasy nối chuỗi bằng dấu phẩy
             document.getElementById('list-easy').innerText = listEasy.length ? listEasy.join(", ") : "Không có";
             document.getElementById('list-medium').innerHTML = listMedium.length ? listMedium.join("") : '<span class="text-muted small">Không có</span>';
             document.getElementById('list-hard').innerHTML = listHard.length ? listHard.join("") : '<span class="text-muted small">Không có</span>';
