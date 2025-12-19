@@ -69,8 +69,11 @@
             <div class="col-md-9 col-lg-10 p-3" style="height: 100vh; overflow-y: auto;">
                 <div class="d-flex justify-content-between align-items-center mb-3">
                     <h5 id="current-exam-title" class="fw-bold text-primary m-0">Chọn đề thi để xem kết quả</h5>
-                    <div>
-                         <button onclick="showChart()" class="btn btn-outline-primary btn-sm me-2 d-none" id="btnShowChart">📊 Xem phổ điểm</button>
+                    <!-- Khu vực các nút chức năng -->
+                    <div id="action-buttons" class="d-none">
+                         <!-- Nút làm mới dữ liệu -->
+                         <button onclick="refreshCurrentData()" class="btn btn-success btn-sm me-2">🔄 Reload</button>
+                         <button onclick="showChart()" class="btn btn-outline-primary btn-sm me-2">📊 Phổ điểm</button>
                     </div>
                 </div>
 
@@ -84,15 +87,15 @@
                         </div>
                         <div class="analysis-section row">
                             <div class="col-md-4 mb-2">
-                                <h6 class="fw-bold text-success small text-uppercase">Dễ (Sai ≤ 30%)</h6>
+                                <h6 class="fw-bold text-success small text-uppercase">Câu Dễ (Tỉ lệ Sai ≤ 30%)</h6>
                                 <div id="list-easy" class="easy-text"></div>
                             </div>
                             <div class="col-md-4 mb-2">
-                                <h6 class="fw-bold text-warning small text-uppercase" style="color:#fd7e14!important">Trung bình (30-70%)</h6>
+                                <h6 class="fw-bold text-warning small text-uppercase" style="color:#fd7e14!important">Câu Trung bình (Tỉ lệ Sai 30-70%)</h6>
                                 <div id="list-medium"></div>
                             </div>
                             <div class="col-md-4 mb-2">
-                                <h6 class="fw-bold text-danger small text-uppercase">Khó (Sai ≥ 70%)</h6>
+                                <h6 class="fw-bold text-danger small text-uppercase">Câu Khó (Tỉ lệ Sai ≥ 70%)</h6>
                                 <div id="list-hard"></div>
                             </div>
                         </div>
@@ -100,7 +103,6 @@
                 </div>
                 
                 <div id="main-content" class="table-container shadow-sm bg-white rounded position-relative">
-                    <!-- Nội dung bảng hoặc Loading sẽ hiện ở đây -->
                 </div>
             </div>
         </div>
@@ -129,9 +131,13 @@
 
         let examList = [];       
         let currentStudents = []; 
+        let currentExam = null; // Lưu đối tượng đề thi đang chọn
         let currentConfig = {};   
         let sortState = { col: null, dir: 'asc' };
         let myChart = null;
+
+        // BIẾN LƯU NHỚ TẠM (CACHE)
+        let examCache = {}; 
 
         window.onload = function() { loadExamList(); };
 
@@ -156,26 +162,52 @@
             }
         }
 
-        async function loadStudentData(exam) {
-            // SỬA LỖI 1: Reset lại nội dung main-content thành hình Loading mỗi khi tải đề mới
-            // Việc này đảm bảo biểu tượng Loading luôn xuất hiện và xóa sạch bảng cũ
+        async function loadStudentData(exam, forceUpdate = false) {
             const container = document.getElementById('main-content');
             container.innerHTML = `
                 <div class="d-flex justify-content-center align-items-center" style="height: 200px;">
                     <div class="spinner-border text-primary" role="status"></div>
                 </div>`;
 
+            // 1. KIỂM TRA CACHE (Nếu không ép buộc update)
+            if (!forceUpdate && examCache[exam.maDe]) {
+                console.log("Load from Cache: " + exam.maDe);
+                currentStudents = examCache[exam.maDe];
+                renderUI(currentStudents, exam.configJson);
+                return; 
+            }
+
+            // 2. GỌI SERVER (Nếu chưa có Cache hoặc ép buộc update)
             try {
                 const response = await fetch(`${GOOGLE_SCRIPT_URL}?action=getStudentList&pass=${AUTO_PASS}&maDe=${exam.maDe}&t=${new Date().getTime()}`);
                 const data = await response.json();
                 if (data.error) { alert("Lỗi tải dữ liệu HS: " + data.error); } 
                 else {
+                    // LƯU CACHE MỚI
+                    examCache[exam.maDe] = data.students;
+                    
                     currentStudents = data.students;
-                    calculateOverview(currentStudents, currentConfig);
-                    renderMatrixTable(currentStudents, currentConfig);
-                    document.getElementById('btnShowChart').classList.remove('d-none');
+                    renderUI(currentStudents, exam.configJson);
                 }
             } catch (err) { console.error(err); alert("Lỗi kết nối khi tải dữ liệu HS"); }
+        }
+
+        function renderUI(students, configJson) {
+            try { currentConfig = JSON.parse(configJson); } catch(e) { currentConfig = {}; }
+            calculateOverview(students, currentConfig);
+            renderMatrixTable(students, currentConfig);
+            document.getElementById('overview-section').classList.remove('d-none'); 
+            document.getElementById('action-buttons').classList.remove('d-none'); // Hiện các nút
+        }
+
+        // HÀM MỚI: LÀM MỚI DỮ LIỆU THỦ CÔNG
+        function refreshCurrentData() {
+            if (currentExam) {
+                // Xóa Cache cũ đi
+                delete examCache[currentExam.maDe];
+                // Gọi tải lại với tham số forceUpdate = true
+                loadStudentData(currentExam, true);
+            }
         }
 
         function renderExamList(keyword = "") {
@@ -206,12 +238,13 @@
             element.classList.add('active');
             document.getElementById('current-exam-title').innerText = `${exam.maDe} - ${exam.tenDe}`;
             
-            // Ẩn bảng thống kê cũ để người dùng biết là đang tải cái mới
+            // Lưu đề hiện tại để dùng cho nút Refresh
+            currentExam = exam;
+
             document.getElementById('overview-section').classList.add('d-none');
-            document.getElementById('btnShowChart').classList.add('d-none');
+            document.getElementById('action-buttons').classList.add('d-none');
             
             sortState = { col: null, dir: 'asc' };
-            try { currentConfig = JSON.parse(exam.configJson); } catch(e) { currentConfig = {}; }
             loadStudentData(exam);
         }
 
@@ -229,7 +262,6 @@
         function calculateOverview(students, config) {
             const section = document.getElementById('overview-section');
             if(students.length === 0) { section.classList.add('d-none'); return; }
-            section.classList.remove('d-none');
 
             const scores = students.map(s => parseScore(s.diem));
             const count = students.length;
@@ -259,9 +291,7 @@
                 });
                 let wrongPercent = count > 0 ? (wrongCount / count) * 100 : 0;
                 
-                // LOGIC HIỂN THỊ MỚI
                 if (wrongPercent <= 30) {
-                    // Dễ: Thêm % vào trong ngoặc
                     listEasy.push(`C${q.id} (${Math.round(wrongPercent)}%)`);
                 } else if (wrongPercent < 70) {
                     listMedium.push(`<span class="badge bg-warning text-dark question-badge">C${q.id} (${Math.round(wrongPercent)}%)</span>`);
