@@ -9,16 +9,13 @@
     <style>
         body { font-family: 'Roboto', sans-serif; background-color: #f4f6f9; font-size: 14px; }
         
-        /* Màn hình đăng nhập */
         #login-screen { height: 100vh; display: flex; align-items: center; justify-content: center; }
 
-        /* Giao diện chính */
         .sidebar { height: 100vh; overflow-y: auto; background: white; border-right: 1px solid #ddd; display: flex; flex-direction: column; }
         .exam-list-container { flex-grow: 1; overflow-y: auto; }
         .exam-item { cursor: pointer; padding: 12px 15px; border-bottom: 1px solid #eee; transition: 0.2s; }
         .exam-item:hover, .exam-item.active { background-color: #e9ecef; border-left: 5px solid #0d6efd; }
         
-        /* Bảng thống kê Matrix */
         .table-container { overflow: auto; max-height: 70vh; position: relative; border: 1px solid #dee2e6; }
         th, td { text-align: center; vertical-align: middle; white-space: nowrap; padding: 6px !important; }
         
@@ -28,16 +25,13 @@
         thead th { position: sticky; top: 0; z-index: 20; background-color: #343a40; color: white; height: 50px;}
         thead th.sticky-col-1, thead th.sticky-col-2 { z-index: 30; }
         
-        /* Sticky cho dòng thống kê sai (Ngay sau header) */
         .sticky-row-stats { position: sticky; top: 50px; z-index: 15; background-color: #fff3cd; font-weight: bold; border-bottom: 2px solid #999; }
         .sticky-row-stats td.sticky-col-1, .sticky-row-stats td.sticky-col-2 { background-color: #fff3cd; z-index: 25; }
 
-        /* Màu sắc kết quả */
-        .cell-correct { background-color: #ffffff; color: #198754; } /* Trắng - Chữ Xanh */
-        .cell-wrong { background-color: #ffe6e6; color: #dc3545; } /* Đỏ nhạt - Chữ Đỏ */
-        .cell-empty { background-color: #ffe6e6; } /* Không làm cũng đỏ */
-
-        /* Tổng quan đề thi */
+        /* SỬA LỖI MÀU SẮC: THÊM !IMPORTANT ĐỂ KHÔNG BỊ BOOTSTRAP ĐÈ */
+        .cell-correct { background-color: #ffffff !important; color: #198754; } 
+        .cell-wrong { background-color: #ffe6e6 !important; color: #dc3545; } /* Đỏ nhạt cho cả sai và không làm */
+        
         .overview-card { background: white; padding: 15px; border-radius: 8px; margin-bottom: 15px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
         .stat-box { text-align: center; border-right: 1px solid #eee; }
         .stat-box:last-child { border-right: none; }
@@ -54,7 +48,6 @@
 </head>
 <body>
 
-    <!-- 1. Màn hình Đăng nhập -->
     <div id="login-screen">
         <div class="card p-4 shadow" style="width: 350px;">
             <h4 class="text-center mb-3">Đăng Nhập Quản Trị</h4>
@@ -64,13 +57,10 @@
         </div>
     </div>
 
-    <!-- 2. Màn hình Dashboard -->
     <div id="dashboard" class="container-fluid d-none">
         <div class="row">
-            <!-- Cột trái: Tìm kiếm & Danh sách -->
             <div class="col-md-3 col-lg-2 sidebar p-0">
                 <div class="p-3 bg-dark text-white fw-bold">QUẢN LÝ THI</div>
-                <!-- Ô tìm kiếm -->
                 <div class="p-2 border-bottom">
                     <input type="text" id="searchBox" class="form-control form-control-sm" placeholder="Tìm mã đề hoặc tên đề..." onkeyup="filterExamList()">
                 </div>
@@ -79,14 +69,11 @@
                 </div>
             </div>
 
-            <!-- Cột phải: Chi tiết -->
             <div class="col-md-9 col-lg-10 p-3" style="height: 100vh; overflow-y: auto;">
                 <div class="d-flex justify-content-between align-items-center mb-3">
                     <h5 id="current-exam-title" class="fw-bold text-primary m-0">Chọn đề thi để xem kết quả</h5>
-                    <button onclick="exportExcel()" class="btn btn-success btn-sm d-none" id="btnExport">Xuất Excel</button>
                 </div>
 
-                <!-- Card Tổng quan -->
                 <div id="overview-section" class="d-none">
                     <div class="overview-card">
                         <div class="row">
@@ -111,7 +98,6 @@
                 </div>
                 
                 <div id="main-content" class="table-container shadow-sm bg-white rounded">
-                    <!-- Bảng kết quả -->
                 </div>
             </div>
         </div>
@@ -123,6 +109,13 @@
         // ================
 
         let globalData = null; 
+
+        // Hàm tiện ích: Chuyển đổi chuỗi số (4,4 hoặc 4.4) thành số thực để tính toán
+        function parseScore(str) {
+            if (!str) return 0;
+            // Thay dấu phẩy thành dấu chấm rồi mới parse
+            return parseFloat(String(str).replace(',', '.'));
+        }
 
         async function login() {
             const pass = document.getElementById('passwordInput').value;
@@ -142,7 +135,7 @@
                     globalData = data;
                     document.getElementById('login-screen').classList.add('d-none');
                     document.getElementById('dashboard').classList.remove('d-none');
-                    renderExamList(); // Render lần đầu
+                    renderExamList();
                 }
             } catch (err) {
                 console.error(err);
@@ -151,12 +144,9 @@
             }
         }
 
-        // Hàm hiển thị danh sách đề (có hỗ trợ lọc)
         function renderExamList(keyword = "") {
             const listContainer = document.getElementById('exam-list');
             listContainer.innerHTML = "";
-            
-            // Lọc dữ liệu dựa trên keyword
             let filteredExams = [...globalData.exams].reverse();
             if (keyword) {
                 const lowerKey = keyword.toLowerCase();
@@ -165,12 +155,9 @@
                     String(e.tenDe).toLowerCase().includes(lowerKey)
                 );
             }
-            
             if(filteredExams.length === 0) {
-                listContainer.innerHTML = '<p class="text-center mt-3 text-muted small">Không tìm thấy đề nào</p>';
-                return;
+                listContainer.innerHTML = '<p class="text-center mt-3 text-muted small">Không tìm thấy đề nào</p>'; return;
             }
-
             filteredExams.forEach(exam => {
                 const div = document.createElement('div');
                 div.className = "exam-item";
@@ -183,10 +170,8 @@
             });
         }
 
-        // Hàm bắt sự kiện nhập ô tìm kiếm
         function filterExamList() {
-            const key = document.getElementById('searchBox').value;
-            renderExamList(key);
+            renderExamList(document.getElementById('searchBox').value);
         }
 
         function selectExam(exam, element) {
@@ -195,25 +180,20 @@
             document.getElementById('current-exam-title').innerText = `${exam.maDe} - ${exam.tenDe}`;
             
             const students = globalData.students.filter(hs => String(hs.maDe) === String(exam.maDe));
-            
-            // Tính toán tổng quan
             calculateOverview(students);
 
             let config = {};
             try { config = JSON.parse(exam.configJson); } catch(e) {}
-            
             renderMatrixTable(students, config);
         }
 
-        // Hàm tính toán và hiển thị tổng quan
         function calculateOverview(students) {
             const section = document.getElementById('overview-section');
-            if(students.length === 0) {
-                section.classList.add('d-none'); return;
-            }
+            if(students.length === 0) { section.classList.add('d-none'); return; }
             section.classList.remove('d-none');
 
-            const scores = students.map(s => parseFloat(s.diem) || 0);
+            // SỬA LỖI 1: Dùng hàm parseScore để xử lý dấu phẩy khi tính toán
+            const scores = students.map(s => parseScore(s.diem));
             
             const count = students.length;
             const max = Math.max(...scores);
@@ -222,9 +202,9 @@
             const avg = (sum / count).toFixed(2);
 
             document.getElementById('stat-count').innerText = count;
-            document.getElementById('stat-avg').innerText = avg;
-            document.getElementById('stat-max').innerText = parseFloat(max).toFixed(2); // Làm tròn cả max min cho đẹp
-            document.getElementById('stat-min').innerText = parseFloat(min).toFixed(2);
+            document.getElementById('stat-avg').innerText = avg.replace('.', ','); // Hiển thị lại dấu phẩy cho đồng bộ
+            document.getElementById('stat-max').innerText = max.toString().replace('.', ',');
+            document.getElementById('stat-min').innerText = min.toString().replace('.', ',');
         }
 
         function renderMatrixTable(students, examConfig) {
@@ -234,11 +214,9 @@
             }
 
             const questions = examConfig.dapAn || [];
-            
-            // Mảng đếm số học sinh làm ĐÚNG mỗi câu
             let statsCorrectCount = new Array(questions.length).fill(0);
 
-            // 1. Tính toán thống kê trước để vẽ dòng Tỉ lệ sai
+            // Tính thống kê
             students.forEach(hs => {
                 let baiLam = [];
                 try { baiLam = JSON.parse(hs.baiLamJson); } catch(e) { baiLam = []; }
@@ -246,7 +224,6 @@
                 questions.forEach((q, index) => {
                     const ans = baiLam.find(c => c.cau == q.id);
                     let isCorrect = false;
-                    
                     if (ans) {
                         if (q.dang == 1 || q.dang == 3) {
                              if (String(ans.chon) == String(q.dapAn)) isCorrect = true;
@@ -258,22 +235,17 @@
                 });
             });
 
-            // 2. Bắt đầu vẽ bảng
+            // Vẽ bảng
             let html = '<table class="table table-bordered table-hover mb-0">';
-            
-            // HEADER
             html += '<thead><tr>';
             html += '<th class="sticky-col-1">Họ và Tên</th>';
             html += '<th class="sticky-col-2">Điểm</th>';
-            questions.forEach(q => {
-                // Xóa chữ (Đ/S) theo yêu cầu
-                html += `<th>C${q.id}</th>`;
-            });
+            questions.forEach(q => { html += `<th>C${q.id}</th>`; });
             html += '</tr></thead>';
 
             html += '<tbody>';
 
-            // DÒNG THỐNG KÊ TỈ LỆ SAI (Đưa lên đầu tbody)
+            // Dòng thống kê tỉ lệ SAI
             html += '<tr class="sticky-row-stats">';
             html += '<td class="sticky-col-1 text-danger">Tỉ lệ sai</td>';
             html += '<td class="sticky-col-2"></td>';
@@ -281,23 +253,20 @@
             questions.forEach((q, index) => {
                 let wrongPercent = 0;
                 if (totalStudents > 0) {
-                    // Tỉ lệ sai = 100% - Tỉ lệ đúng
                     wrongPercent = 100 - ((statsCorrectCount[index] / totalStudents) * 100);
                 }
-                // Nếu sai 0% thì không hiện màu đỏ đậm, nếu sai nhiều thì hiện rõ
                 let colorClass = wrongPercent > 50 ? "text-danger fw-bold" : "text-dark";
                 html += `<td class="text-center ${colorClass}">${Math.round(wrongPercent)}%</td>`;
             });
             html += '</tr>';
 
-            // NỘI DUNG HỌC SINH
+            // Nội dung HS
             students.forEach(hs => {
                 let baiLam = [];
                 try { baiLam = JSON.parse(hs.baiLamJson); } catch(e) { baiLam = []; }
 
-                // Làm tròn điểm đến 2 chữ số thập phân, ép về số float để xóa số 0 vô nghĩa nếu muốn
-                let diemHienThi = parseFloat(hs.diem).toFixed(2);
-                // Nếu muốn 4.40 thành 4.4 thì dùng: parseFloat(parseFloat(hs.diem).toFixed(2))
+                // SỬA LỖI 1: Hiển thị nguyên văn dữ liệu từ Sheet (không parse, không round)
+                let diemHienThi = hs.diem; 
 
                 html += `<tr>`;
                 html += `<td class="sticky-col-1 fw-bold text-start ps-2">${hs.hoTen}</td>`;
@@ -306,33 +275,31 @@
                 questions.forEach((q, index) => {
                     const ans = baiLam.find(c => c.cau == q.id);
                     let display = "";
-                    let cssClass = "cell-wrong"; // Mặc định là SAI (Đỏ)
+                    let cssClass = "cell-wrong"; // SỬA LỖI 2: Mặc định là SAI (ĐỎ)
                     let isCorrect = false;
 
                     if (ans) {
-                        // Logic hiển thị text
                         if (q.dang == 2 && Array.isArray(ans.chon)) {
                             display = ans.chon.map(val => val === true ? "Đ" : "S").join("");
                         } else {
                             display = ans.chon;
                         }
 
-                        // Logic check đúng sai
                         if (q.dang == 1 || q.dang == 3) {
                              if (String(ans.chon) == String(q.dapAn)) isCorrect = true;
                         } else if (q.dang == 2) {
                              if (JSON.stringify(ans.chon) === JSON.stringify(q.dapAn)) isCorrect = true;
                         }
                     } else {
-                        // Không làm bài
-                        display = ""; // Để trống
-                        cssClass = "cell-wrong"; // Vẫn tô đỏ
+                        // Không làm bài -> Vẫn giữ cell-wrong, nội dung trống
+                        display = ""; 
                     }
 
                     if (isCorrect) {
                         cssClass = "cell-correct";
                     }
 
+                    // SỬA LỖI 2: Dùng cssClass có !important
                     html += `<td class="${cssClass}">${display}</td>`;
                 });
                 html += `</tr>`;
