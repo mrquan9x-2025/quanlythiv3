@@ -4,9 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Hệ Thống Quản Lý Thi</title>
+    <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+    <!-- Chart.js (Biểu đồ) -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- SheetJS (Xuất Excel) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
     <style>
         body { font-family: 'Roboto', sans-serif; background-color: #f4f6f9; font-size: 14px; }
@@ -34,6 +39,16 @@
         .analysis-section { margin-top: 15px; border-top: 1px dashed #ccc; padding-top: 15px; }
         .question-badge { font-size: 0.85rem; margin-right: 5px; margin-bottom: 5px; display: inline-block; padding: 5px 10px; }
         .easy-text { color: #6c757d; font-size: 0.9rem; line-height: 1.6; }
+        
+        /* Style cho bảng phân tích câu hỏi */
+        .item-analysis-table th { background-color: #e9ecef; color: #333; vertical-align: middle; }
+        .bad-question { background-color: #ffe6e6; } 
+        .good-question { background-color: #d1e7dd; } 
+
+        /* Footer Credit */
+        .page-footer { margin-top: 20px; padding-top: 10px; border-top: 1px solid #eee; text-align: center; font-size: 0.9rem; color: #6c757d; }
+        .page-footer a { color: #0d6efd; text-decoration: none; font-weight: 500; }
+        .page-footer a:hover { text-decoration: underline; }
 
         #loading-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.9); z-index: 9999; display: flex; justify-content: center; align-items: center; flex-direction: column; }
         
@@ -50,7 +65,6 @@
     <div id="loading-overlay">
         <div class="spinner-border text-primary mb-3" role="status"></div>
         <h5 class="fw-bold text-primary">Đang tải danh sách đề...</h5>
-        <small class="text-muted">Design by QuânPT</small>
         <p id="error-msg" class="text-danger mt-3 fw-bold"></p>
     </div>
 
@@ -71,12 +85,14 @@
                     <h5 id="current-exam-title" class="fw-bold text-primary m-0">Chọn đề thi để xem kết quả</h5>
                     <!-- Khu vực các nút chức năng -->
                     <div id="action-buttons" class="d-none">
-                         <!-- Nút làm mới dữ liệu -->
-                         <button onclick="refreshCurrentData()" class="btn btn-success btn-sm me-2">🔄 Reload</button>
-                         <button onclick="showChart()" class="btn btn-outline-primary btn-sm me-2">📊 Phổ điểm</button>
+                         <button onclick="refreshCurrentData()" class="btn btn-success btn-sm me-1" title="Tải lại dữ liệu mới nhất">🔄</button>
+                         <button onclick="showAdvancedStats()" class="btn btn-info btn-sm me-1 text-white">📈 Thống kê</button>
+                         <button onclick="showItemAnalysis()" class="btn btn-warning btn-sm me-1">🔍 Phân tích</button>
+                         <button onclick="showChart()" class="btn btn-primary btn-sm">📊 Phổ điểm</button>
                     </div>
                 </div>
 
+                <!-- Tổng quan rút gọn -->
                 <div id="overview-section" class="d-none">
                     <div class="overview-card">
                         <div class="row mb-2">
@@ -87,15 +103,15 @@
                         </div>
                         <div class="analysis-section row">
                             <div class="col-md-4 mb-2">
-                                <h6 class="fw-bold text-success small text-uppercase">Câu Dễ (Tỉ lệ Sai ≤ 30%)</h6>
+                                <h6 class="fw-bold text-success small text-uppercase">Dễ (Sai < 30%)</h6>
                                 <div id="list-easy" class="easy-text"></div>
                             </div>
                             <div class="col-md-4 mb-2">
-                                <h6 class="fw-bold text-warning small text-uppercase" style="color:#fd7e14!important">Câu Trung bình (Tỉ lệ Sai 30-70%)</h6>
+                                <h6 class="fw-bold text-warning small text-uppercase" style="color:#fd7e14!important">Trung bình (30-70%)</h6>
                                 <div id="list-medium"></div>
                             </div>
                             <div class="col-md-4 mb-2">
-                                <h6 class="fw-bold text-danger small text-uppercase">Câu Khó (Tỉ lệ Sai ≥ 70%)</h6>
+                                <h6 class="fw-bold text-danger small text-uppercase">Khó (Sai > 70%)</h6>
                                 <div id="list-hard"></div>
                             </div>
                         </div>
@@ -104,20 +120,90 @@
                 
                 <div id="main-content" class="table-container shadow-sm bg-white rounded position-relative">
                 </div>
+
+                <!-- FOOTER & NÚT XUẤT EXCEL -->
+                <div id="footer-actions" class="d-none mt-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <button onclick="exportStudentList()" class="btn btn-outline-success fw-bold">
+                            📥 Xuất bảng điểm (.xlsx)
+                        </button>
+                        <div class="page-footer">
+                            Design by <a href="https://www.facebook.com/quanptq" target="_blank">Phạm Thế Quân</a> @ 2025
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
 
-    <!-- Modal Biểu đồ -->
+    <!-- MODAL 1: BIỂU ĐỒ PHỔ ĐIỂM -->
     <div class="modal fade" id="chartModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-lg modal-dialog-centered">
             <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title fw-bold">📊 Phổ điểm thi</h5>
-                    <button type="button" class="btn-close" onclick="closeChartModal()"></button>
+                <div class="modal-header"><h5 class="modal-title fw-bold">📊 Phổ điểm thi</h5><button type="button" class="btn-close" onclick="closeModal('chartModal')"></button></div>
+                <div class="modal-body"><canvas id="scoreChart"></canvas></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL 2: THỐNG KÊ NÂNG CAO -->
+    <div class="modal fade" id="statsModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header bg-info text-white"><h5 class="modal-title fw-bold">📈 Các chỉ số thống kê</h5><button type="button" class="btn-close" onclick="closeModal('statsModal')"></button></div>
+                <div class="modal-body">
+                    <table class="table table-striped">
+                        <tbody>
+                            <tr><td>Tổng số thí sinh</td><td class="fw-bold text-end" id="st-count"></td></tr>
+                            <tr><td>Điểm trung bình (Mean)</td><td class="fw-bold text-end" id="st-mean"></td></tr>
+                            <tr><td>Trung vị (Median)</td><td class="fw-bold text-end" id="st-median"></td></tr>
+                            <tr><td>Mốt (Mode)</td><td class="fw-bold text-end" id="st-mode"></td></tr>
+                            <tr><td>Độ lệch chuẩn (SD)</td><td class="fw-bold text-end" id="st-sd"></td></tr>
+                            <tr><td>Điểm thấp nhất (Min)</td><td class="fw-bold text-end text-danger" id="st-min-val"></td></tr>
+                            <tr><td>Điểm cao nhất (Max)</td><td class="fw-bold text-end text-success" id="st-max-val"></td></tr>
+                            <tr><td>Tứ phân vị thứ nhất (Q1)</td><td class="fw-bold text-end" id="st-q1"></td></tr>
+                            <tr><td>Tứ phân vị thứ ba (Q3)</td><td class="fw-bold text-end" id="st-q3"></td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL 3: PHÂN TÍCH CÂU HỎI (ITEM ANALYSIS) -->
+    <div class="modal fade" id="itemAnalysisModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header bg-warning">
+                    <h5 class="modal-title fw-bold">🔍 Phân tích chất lượng câu hỏi (27% Group)</h5>
+                    <button type="button" class="btn-close" onclick="closeModal('itemAnalysisModal')"></button>
                 </div>
                 <div class="modal-body">
-                    <canvas id="scoreChart"></canvas>
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <div class="alert alert-light border small mb-0 p-2 flex-grow-1 me-2">
+                            <strong>Chú giải:</strong><br>
+                            - <strong>Độ khó (P):</strong> Tỉ lệ đúng. P > 0.7 (Dễ), 0.3-0.7 (TB), < 0.3 (Khó).<br>
+                            - <strong>Độ phân biệt (D):</strong> Phân loại Giỏi/Yếu. D >= 0.4 (Rất tốt), 0.3-0.4 (Tốt), 0.2-0.3 (Chấp nhận), < 0.2 (Kém).
+                        </div>
+                        <button onclick="exportItemAnalysis()" class="btn btn-success text-nowrap">📥 Xuất báo cáo</button>
+                    </div>
+                    
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-sm text-center item-analysis-table">
+                            <thead>
+                                <tr>
+                                    <th>Câu</th>
+                                    <th>Nhóm Cao (H)<br><small id="h-count"></small></th>
+                                    <th>Nhóm Thấp (L)<br><small id="l-count"></small></th>
+                                    <th>Độ khó (P)</th>
+                                    <th>Mức độ</th>
+                                    <th>Độ phân biệt (D)</th>
+                                    <th>Đánh giá</th>
+                                </tr>
+                            </thead>
+                            <tbody id="item-analysis-body"></tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         </div>
@@ -131,12 +217,10 @@
 
         let examList = [];       
         let currentStudents = []; 
-        let currentExam = null; // Lưu đối tượng đề thi đang chọn
+        let currentExam = null; 
         let currentConfig = {};   
         let sortState = { col: null, dir: 'asc' };
         let myChart = null;
-
-        // BIẾN LƯU NHỚ TẠM (CACHE)
         let examCache = {}; 
 
         window.onload = function() { loadExamList(); };
@@ -144,48 +228,40 @@
         function parseScore(str) { return !str ? 0 : parseFloat(String(str).replace(',', '.')); }
         function getName(fullName) { if (!fullName) return ""; const parts = fullName.trim().split(" "); return parts[parts.length - 1].toLowerCase(); }
 
+        // --- CÁC HÀM XỬ LÝ MODAL ---
+        function showModal(id) { const modal = new bootstrap.Modal(document.getElementById(id)); modal.show(); }
+        function closeModal(id) { const el = document.getElementById(id); const modal = bootstrap.Modal.getInstance(el); if (modal) modal.hide(); }
+
         async function loadExamList() {
             try {
                 const response = await fetch(`${GOOGLE_SCRIPT_URL}?action=getExamList&pass=${AUTO_PASS}&t=${new Date().getTime()}`);
                 const data = await response.json();
-                if (data.error) {
-                    document.getElementById('error-msg').innerText = "Lỗi: " + data.error;
-                } else {
+                if (data.error) document.getElementById('error-msg').innerText = "Lỗi: " + data.error;
+                else {
                     examList = data.exams;
                     document.getElementById('loading-overlay').classList.add('d-none');
                     document.getElementById('dashboard').classList.remove('d-none');
                     renderExamList();
                 }
-            } catch (err) {
-                console.error(err);
-                document.getElementById('error-msg').innerText = "Không thể kết nối Server!";
-            }
+            } catch (err) { console.error(err); document.getElementById('error-msg').innerText = "Không thể kết nối Server!"; }
         }
 
         async function loadStudentData(exam, forceUpdate = false) {
             const container = document.getElementById('main-content');
-            container.innerHTML = `
-                <div class="d-flex justify-content-center align-items-center" style="height: 200px;">
-                    <div class="spinner-border text-primary" role="status"></div>
-                </div>`;
+            container.innerHTML = `<div class="d-flex justify-content-center align-items-center" style="height: 200px;"><div class="spinner-border text-primary"></div></div>`;
 
-            // 1. KIỂM TRA CACHE (Nếu không ép buộc update)
             if (!forceUpdate && examCache[exam.maDe]) {
-                console.log("Load from Cache: " + exam.maDe);
                 currentStudents = examCache[exam.maDe];
                 renderUI(currentStudents, exam.configJson);
                 return; 
             }
 
-            // 2. GỌI SERVER (Nếu chưa có Cache hoặc ép buộc update)
             try {
                 const response = await fetch(`${GOOGLE_SCRIPT_URL}?action=getStudentList&pass=${AUTO_PASS}&maDe=${exam.maDe}&t=${new Date().getTime()}`);
                 const data = await response.json();
-                if (data.error) { alert("Lỗi tải dữ liệu HS: " + data.error); } 
+                if (data.error) alert("Lỗi tải dữ liệu HS: " + data.error); 
                 else {
-                    // LƯU CACHE MỚI
                     examCache[exam.maDe] = data.students;
-                    
                     currentStudents = data.students;
                     renderUI(currentStudents, exam.configJson);
                 }
@@ -197,29 +273,211 @@
             calculateOverview(students, currentConfig);
             renderMatrixTable(students, currentConfig);
             document.getElementById('overview-section').classList.remove('d-none'); 
-            document.getElementById('action-buttons').classList.remove('d-none'); // Hiện các nút
+            document.getElementById('action-buttons').classList.remove('d-none'); 
+            document.getElementById('footer-actions').classList.remove('d-none'); // Hiện footer
         }
 
-        // HÀM MỚI: LÀM MỚI DỮ LIỆU THỦ CÔNG
         function refreshCurrentData() {
-            if (currentExam) {
-                // Xóa Cache cũ đi
-                delete examCache[currentExam.maDe];
-                // Gọi tải lại với tham số forceUpdate = true
-                loadStudentData(currentExam, true);
-            }
+            if (currentExam) { delete examCache[currentExam.maDe]; loadStudentData(currentExam, true); }
         }
 
+        // --- EXCEL EXPORT 1: DANH SÁCH THÍ SINH ---
+        function exportStudentList() {
+            if (currentStudents.length === 0) return;
+            const questions = currentConfig.dapAn || [];
+            
+            // Chuẩn bị dữ liệu
+            let data = currentStudents.map(s => {
+                let baiLam = []; try { baiLam = JSON.parse(s.baiLamJson); } catch(e) {}
+                
+                let row = {
+                    "Mã đề": s.maDe,
+                    "Họ và Tên": s.hoTen,
+                    "Điểm": s.diem
+                };
+
+                questions.forEach(q => {
+                    const ans = baiLam.find(c => c.cau == q.id);
+                    let display = "";
+                    if (ans) {
+                        if (q.dang == 2 && Array.isArray(ans.chon)) display = ans.chon.map(val => val === true ? "Đ" : "S").join("");
+                        else display = ans.chon;
+                    }
+                    row[`Câu ${q.id}`] = display;
+                });
+                return row;
+            });
+
+            // Tạo file Excel
+            const ws = XLSX.utils.json_to_sheet(data);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "BangDiem");
+            XLSX.writeFile(wb, `BangDiem_${currentExam.maDe}.xlsx`);
+        }
+
+        // --- EXCEL EXPORT 2: PHÂN TÍCH CÂU HỎI ---
+        function exportItemAnalysis() {
+            if (currentStudents.length === 0) return;
+            const questions = currentConfig.dapAn || [];
+            if (questions.length === 0) return;
+
+            let sortedStudents = [...currentStudents].sort((a, b) => parseScore(b.diem) - parseScore(a.diem));
+            const total = sortedStudents.length;
+            const groupSize = Math.round(total * 0.27);
+            
+            const highGroup = sortedStudents.slice(0, groupSize);
+            const lowGroup = sortedStudents.slice(total - groupSize, total);
+
+            let data = questions.map(q => {
+                const rHigh = countCorrect(highGroup, q);
+                const rLow = countCorrect(lowGroup, q);
+                const rTotal = countCorrect(sortedStudents, q);
+
+                const p = rTotal / total; 
+                const d = groupSize > 0 ? (rHigh - rLow) / groupSize : 0;
+
+                // Quy tắc phân loại mới: P > 0.7 (Dễ), 0.3-0.7 (TB), < 0.3 (Khó)
+                let mucDo = "";
+                if (p > 0.7) mucDo = "Dễ";
+                else if (p >= 0.3) mucDo = "Trung bình";
+                else mucDo = "Khó";
+
+                return {
+                    "Câu": q.id,
+                    "Nhóm Cao (H)": rHigh,
+                    "Nhóm Thấp (L)": rLow,
+                    "Tổng Đúng": rTotal,
+                    "Độ khó (P)": p.toFixed(3),
+                    "Mức độ": mucDo,
+                    "Độ phân biệt (D)": d.toFixed(3)
+                };
+            });
+
+            const ws = XLSX.utils.json_to_sheet(data);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "PhanTichCauHoi");
+            XLSX.writeFile(wb, `PhanTich_${currentExam.maDe}.xlsx`);
+        }
+
+        // --- THỐNG KÊ NÂNG CAO ---
+        function showAdvancedStats() {
+            if (currentStudents.length === 0) return;
+            let scores = currentStudents.map(s => parseScore(s.diem)).sort((a, b) => a - b);
+            const n = scores.length;
+            const sum = scores.reduce((a, b) => a + b, 0);
+            const mean = sum / n;
+
+            let median = 0;
+            if (n % 2 === 0) median = (scores[n/2 - 1] + scores[n/2]) / 2;
+            else median = scores[Math.floor(n/2)];
+
+            let frequency = {};
+            let maxFreq = 0;
+            scores.forEach(val => { frequency[val] = (frequency[val] || 0) + 1; if (frequency[val] > maxFreq) maxFreq = frequency[val]; });
+            let modes = []; for (let key in frequency) { if (frequency[key] === maxFreq && maxFreq > 1) modes.push(key); }
+            let modeStr = modes.length > 0 ? modes.join(", ") : "Không có";
+
+            const variance = scores.reduce((acc, val) => acc + Math.pow(val - mean, 2), 0) / n;
+            const sd = Math.sqrt(variance);
+
+            document.getElementById('st-count').innerText = n;
+            document.getElementById('st-mean').innerText = mean.toFixed(2);
+            document.getElementById('st-median').innerText = median.toFixed(2);
+            document.getElementById('st-mode').innerText = modeStr + (modes.length > 0 ? ` (${maxFreq} lần)` : "");
+            document.getElementById('st-sd').innerText = sd.toFixed(2);
+            document.getElementById('st-min-val').innerText = scores[0];
+            document.getElementById('st-max-val').innerText = scores[n-1];
+            document.getElementById('st-q1').innerText = quantile(scores, 0.25);
+            document.getElementById('st-q3').innerText = quantile(scores, 0.75);
+
+            showModal('statsModal');
+        }
+
+        function quantile(sorted, q) {
+            const pos = (sorted.length - 1) * q;
+            const base = Math.floor(pos);
+            const rest = pos - base;
+            if (sorted[base + 1] !== undefined) return (sorted[base] + rest * (sorted[base + 1] - sorted[base])).toFixed(2);
+            else return sorted[base].toFixed(2);
+        }
+
+        // --- PHÂN TÍCH CÂU HỎI (27% Group) ---
+        function showItemAnalysis() {
+            if (currentStudents.length === 0) return;
+            const questions = currentConfig.dapAn || [];
+            if (questions.length === 0) { alert("Không có thông tin đáp án."); return; }
+
+            let sortedStudents = [...currentStudents].sort((a, b) => parseScore(b.diem) - parseScore(a.diem));
+            const total = sortedStudents.length;
+            const groupSize = Math.round(total * 0.27);
+            
+            if (groupSize === 0) { alert("Số lượng học sinh quá ít để phân tích."); return; }
+            
+            const highGroup = sortedStudents.slice(0, groupSize);
+            const lowGroup = sortedStudents.slice(total - groupSize, total);
+
+            document.getElementById('h-count').innerText = `(n=${groupSize})`;
+            document.getElementById('l-count').innerText = `(n=${groupSize})`;
+
+            let html = "";
+            questions.forEach(q => {
+                const rHigh = countCorrect(highGroup, q);
+                const rLow = countCorrect(lowGroup, q);
+                const rTotal = countCorrect(sortedStudents, q);
+
+                const p = rTotal / total; // Độ khó
+                const d = (rHigh - rLow) / groupSize; // Độ phân biệt
+
+                // Phân loại Độ khó (ĐÃ ĐỒNG BỘ LOGIC)
+                // W < 30% => P > 0.7 (Dễ)
+                // 30% <= W <= 70% => 0.3 <= P <= 0.7 (TB)
+                // W > 70% => P < 0.3 (Khó)
+                let pLabel = "", pClass = "";
+                if (p > 0.7) { pLabel = "Dễ"; pClass = "text-success"; }
+                else if (p >= 0.3) { pLabel = "Trung bình"; pClass = "text-warning"; }
+                else { pLabel = "Khó"; pClass = "text-danger"; }
+
+                let dLabel = "", dClass = "", rowClass = "";
+                if (d >= 0.4) { dLabel = "Rất tốt"; dClass = "text-success fw-bold"; rowClass = "good-question"; }
+                else if (d >= 0.3) { dLabel = "Tốt"; dClass = "text-primary"; }
+                else if (d >= 0.2) { dLabel = "Chấp nhận"; dClass = "text-secondary"; }
+                else { dLabel = "Kém/Cần sửa"; dClass = "text-danger fw-bold"; rowClass = "bad-question"; }
+
+                html += `<tr class="${rowClass}">
+                    <td class="fw-bold">C${q.id}</td>
+                    <td>${rHigh}/${groupSize}</td>
+                    <td>${rLow}/${groupSize}</td>
+                    <td><b class="${pClass}">${p.toFixed(2)}</b></td>
+                    <td class="small ${pClass}">${pLabel}</td>
+                    <td><b class="${dClass}">${d.toFixed(2)}</b></td>
+                    <td class="small ${dClass}">${dLabel}</td>
+                </tr>`;
+            });
+            document.getElementById('item-analysis-body').innerHTML = html;
+            showModal('itemAnalysisModal');
+        }
+
+        function countCorrect(group, question) {
+            let count = 0;
+            group.forEach(hs => {
+                let baiLam = []; try { baiLam = JSON.parse(hs.baiLamJson); } catch(e) {}
+                const ans = baiLam.find(c => c.cau == question.id);
+                if (ans) {
+                    if (question.dang == 1 || question.dang == 3) { if (String(ans.chon) == String(question.dapAn)) count++; } 
+                    else if (question.dang == 2) { if (JSON.stringify(ans.chon) === JSON.stringify(question.dapAn)) count++; }
+                }
+            });
+            return count;
+        }
+
+        // --- CÁC HÀM CŨ ---
         function renderExamList(keyword = "") {
             const listContainer = document.getElementById('exam-list');
             listContainer.innerHTML = "";
             let filteredExams = [...examList].reverse();
             if (keyword) {
                 const lowerKey = keyword.toLowerCase();
-                filteredExams = filteredExams.filter(e => 
-                    String(e.maDe).toLowerCase().includes(lowerKey) || 
-                    String(e.tenDe).toLowerCase().includes(lowerKey)
-                );
+                filteredExams = filteredExams.filter(e => String(e.maDe).toLowerCase().includes(lowerKey) || String(e.tenDe).toLowerCase().includes(lowerKey));
             }
             if(filteredExams.length === 0) { listContainer.innerHTML = '<p class="text-center mt-3 text-muted small">Không tìm thấy</p>'; return; }
             filteredExams.forEach(exam => {
@@ -230,24 +488,18 @@
                 listContainer.appendChild(div);
             });
         }
-
         function filterExamList() { renderExamList(document.getElementById('searchBox').value); }
-
         function selectExam(exam, element) {
             document.querySelectorAll('.exam-item').forEach(el => el.classList.remove('active'));
             element.classList.add('active');
             document.getElementById('current-exam-title').innerText = `${exam.maDe} - ${exam.tenDe}`;
-            
-            // Lưu đề hiện tại để dùng cho nút Refresh
             currentExam = exam;
-
             document.getElementById('overview-section').classList.add('d-none');
             document.getElementById('action-buttons').classList.add('d-none');
-            
+            document.getElementById('footer-actions').classList.add('d-none');
             sortState = { col: null, dir: 'asc' };
             loadStudentData(exam);
         }
-
         function sortTable(column) {
             if (sortState.col === column) sortState.dir = sortState.dir === 'asc' ? 'desc' : 'asc';
             else { sortState.col = column; sortState.dir = 'asc'; }
@@ -258,23 +510,15 @@
             });
             renderMatrixTable(currentStudents, currentConfig);
         }
-
         function calculateOverview(students, config) {
             const section = document.getElementById('overview-section');
             if(students.length === 0) { section.classList.add('d-none'); return; }
-
             const scores = students.map(s => parseScore(s.diem));
             const count = students.length;
-            const max = Math.max(...scores);
-            const min = Math.min(...scores);
-            const sum = scores.reduce((a, b) => a + b, 0);
-            const avg = (sum / count).toFixed(2);
-
-            document.getElementById('stat-count').innerText = count;
-            document.getElementById('stat-avg').innerText = avg.replace('.', ',');
-            document.getElementById('stat-max').innerText = max.toString().replace('.', ',');
-            document.getElementById('stat-min').innerText = min.toString().replace('.', ',');
-
+            const max = Math.max(...scores); const min = Math.min(...scores);
+            const sum = scores.reduce((a, b) => a + b, 0); const avg = (sum / count).toFixed(2);
+            document.getElementById('stat-count').innerText = count; document.getElementById('stat-avg').innerText = avg.replace('.', ',');
+            document.getElementById('stat-max').innerText = max.toString().replace('.', ','); document.getElementById('stat-min').innerText = min.toString().replace('.', ',');
             const questions = config.dapAn || [];
             let listEasy = [], listMedium = [], listHard = [];
             questions.forEach(q => {
@@ -291,27 +535,20 @@
                 });
                 let wrongPercent = count > 0 ? (wrongCount / count) * 100 : 0;
                 
-                if (wrongPercent <= 30) {
-                    listEasy.push(`C${q.id} (${Math.round(wrongPercent)}%)`);
-                } else if (wrongPercent < 70) {
-                    listMedium.push(`<span class="badge bg-warning text-dark question-badge">C${q.id} (${Math.round(wrongPercent)}%)</span>`);
-                } else {
-                    listHard.push(`<span class="badge bg-danger question-badge">C${q.id} (${Math.round(wrongPercent)}%)</span>`);
-                }
+                // ĐỒNG BỘ LOGIC PHÂN LOẠI
+                if (wrongPercent < 30) listEasy.push(`C${q.id} (${Math.round(wrongPercent)}%)`); // Dễ
+                else if (wrongPercent <= 70) listMedium.push(`<span class="badge bg-warning text-dark question-badge">C${q.id} (${Math.round(wrongPercent)}%)</span>`); // TB
+                else listHard.push(`<span class="badge bg-danger question-badge">C${q.id} (${Math.round(wrongPercent)}%)</span>`); // Khó
             });
-
             document.getElementById('list-easy').innerText = listEasy.length ? listEasy.join(", ") : "Không có";
             document.getElementById('list-medium').innerHTML = listMedium.length ? listMedium.join("") : '<span class="text-muted small">Không có</span>';
             document.getElementById('list-hard').innerHTML = listHard.length ? listHard.join("") : '<span class="text-muted small">Không có</span>';
         }
-
         function renderMatrixTable(students, examConfig) {
             const container = document.getElementById('main-content');
             if (students.length === 0) { container.innerHTML = '<p class="text-center p-4">Chưa có dữ liệu thi.</p>'; return; }
-
             const questions = examConfig.dapAn || [];
             let statsCorrectCount = new Array(questions.length).fill(0);
-
             students.forEach(hs => {
                 let baiLam = []; try { baiLam = JSON.parse(hs.baiLamJson); } catch(e) { baiLam = []; }
                 questions.forEach((q, index) => {
@@ -324,7 +561,6 @@
                     if(isCorrect) statsCorrectCount[index]++;
                 });
             });
-
             let html = '<table class="table table-bordered table-hover mb-0">';
             let iconName = sortState.col === 'name' ? (sortState.dir === 'asc' ? '▲' : '▼') : '↕';
             let iconScore = sortState.col === 'score' ? (sortState.dir === 'asc' ? '▲' : '▼') : '↕';
@@ -359,7 +595,6 @@
             html += '</tbody></table>';
             container.innerHTML = html;
         }
-
         function showChart() {
             if (currentStudents.length === 0) return;
             let distribution = new Array(10).fill(0);
@@ -377,20 +612,9 @@
                 },
                 options: { responsive: true, scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } } }
             });
-            document.getElementById('chartModal').classList.add('show');
-            document.getElementById('chartModal').style.display = 'block';
-            document.body.classList.add('modal-open');
-            let backdrop = document.createElement('div');
-            backdrop.className = 'modal-backdrop fade show';
-            backdrop.id = 'chartBackdrop';
-            document.body.appendChild(backdrop);
-        }
-        function closeChartModal() {
-            document.getElementById('chartModal').classList.remove('show');
-            document.getElementById('chartModal').style.display = 'none';
-            document.body.classList.remove('modal-open');
-            let backdrop = document.getElementById('chartBackdrop'); if(backdrop) backdrop.remove();
+            showModal('chartModal');
         }
     </script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
